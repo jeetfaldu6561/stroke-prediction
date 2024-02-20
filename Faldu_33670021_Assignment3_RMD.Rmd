@@ -1,0 +1,425 @@
+---
+title: "Faldu_33670021_Assignment3"
+output: html_document
+date: "2023-10-17"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+``` {r eval=FALSE}
+
+library(rpart)
+library("tidyverse")
+library("dplyr")
+library("visdat")
+library(GGally)
+library(gridExtra)
+library(ggplot2)
+library(rpart)
+library(rpart.plot)
+
+#Reading data file
+file_path = getwd()
+setwd(file_path)
+df_hds <- read_csv('data/healthcare_dataset_stroke_data.csv')
+
+```
+
+``` {r eval=FALSE}
+#Getting glimpse of data
+glimpse(df_hds)
+unique(df_hds$"bmi")
+
+df_hds <- df_hds %>%
+  mutate(bmi = na_if(bmi, "N/A"))
+
+df_hds$bmi <- as.numeric(df_hds$bmi)
+
+df_hds1 <- data.frame(data.matrix(data.frame(unclass(df_hds))))
+#Visualising Null values columns
+df_hds %>%
+  vis_dat() +
+  ggplot2::theme(legend.position = "bottom")
+
+```
+
+
+``` {r eval=FALSE}
+df_hds2 <- df_hds1 %>%
+  # remove NAs
+  drop_na()
+
+glimpse(df_hds2)
+
+df_hds3 <- df_hds2%>%
+  select(-id)
+
+glimpse(df_hds3)
+df_hds3_fit <- rpart(stroke ~ ., data = df_hds3)
+
+#Plotting importance matrix
+
+var_importance <- tibble(
+  variable = names(df_hds3_fit$variable.importance),
+  importance = df_hds3_fit$variable.importance)
+var_importance %>% 
+  mutate(variable = fct_reorder(variable, importance)) %>% 
+  ggplot(aes(x = importance, y = variable)) +
+  geom_segment(aes(x = 0, y = variable, xend = importance, yend = variable)) +
+  geom_point(colour = "red")
+
+```
+
+``` {r eval=FALSE}
+#Converting categorical data to factor
+df_hds3$gender <- as.factor(df_hds3$gender)
+df_hds3$ever_married <- as.factor(df_hds3$ever_married)
+df_hds3$work_type <- as.factor(df_hds3$work_type)
+df_hds3$Residence_type <- as.factor(df_hds3$Residence_type)
+df_hds3$smoking_status <- as.factor(df_hds3$smoking_status)
+
+
+```
+
+``` {r eval=FALSE}
+#Selecting Numerical data
+my_data3 <- df_hds3%>%
+  select(age, avg_glucose_level,bmi)
+
+#Converting to long form
+my_data3_long <- my_data3 %>%
+  gather(column_name, value)
+
+#Box plot
+ggplot(data = my_data3_long, aes(x = column_name, y = value, fill = column_name)) +
+  geom_boxplot() +
+  facet_wrap(~ column_name, scales = "free", ncol = 1) + 
+  labs(x = "Column Names", y = "Values") +
+  theme_minimal() +
+  scale_fill_manual(values = rainbow(length(unique(my_data3_long$column_name)))) +
+  coord_flip() 
+
+```
+
+``` {r eval=FALSE}
+#Plots for categorical data
+my_data4 <- df_hds
+
+#Work Type
+ggplot(data = my_data4, aes(x = work_type, fill = factor(stroke))) +
+  geom_bar(position = "dodge", color = "black") +
+  labs(x = "Work Type", y = "Count") +
+  theme_bw()
+
+```
+``` {r eval=FALSE}
+
+#Smoking Status
+ggplot(data = my_data4, aes(x = smoking_status, fill = factor(stroke))) +
+  geom_bar(position = "dodge", color = "black") +
+  labs(x = "smoking status", y = "Count") +
+  theme_bw()
+```
+
+``` {r eval=FALSE}
+#Gender
+
+#Create dataframe for stroke 0
+df_gender_no <- subset(my_data4, stroke == 0) %>% 
+  group_by(gender) %>% # Variable to be transformed
+  count() %>% 
+  ungroup() %>% 
+  mutate(perc = `n` / sum(`n`)) %>% 
+  arrange(perc) %>%
+  mutate(labels = scales::percent(perc))
+
+#Create dataframe for stroke 1
+df_gender_yes <- subset(my_data4, stroke == 1) %>% 
+  group_by(gender) %>% # Variable to be transformed
+  count() %>% 
+  ungroup() %>% 
+  mutate(perc = `n` / sum(`n`)) %>% 
+  arrange(perc) %>%
+  mutate(labels = scales::percent(perc))
+
+#Plot 1
+pl1 <- list(ggplot(df_gender_no, aes(x = "", y = perc, fill = gender)) +
+  geom_col() +
+  geom_label(aes(label = labels),
+             position = position_stack(vjust = 0.5),
+             show.legend = FALSE) +
+  guides(fill = guide_legend(title = "Gender")) +
+  scale_fill_brewer() +
+  coord_polar(theta = "y") + 
+  labs(title = "No Stroke") +  
+  theme_void())
+
+#Plot 2
+pl2 <- list(ggplot(df_gender_yes, aes(x = "", y = perc, fill = gender)) +
+  geom_col() +
+  geom_label(aes(label = labels),
+             position = position_stack(vjust = 0.5),
+             show.legend = FALSE) +
+  guides(fill = guide_legend(title = "Gender")) +
+  scale_fill_brewer() +
+  coord_polar(theta = "y") + 
+    labs(title = "Stroke") + 
+  theme_void())
+
+#Plot
+grid.arrange(grobs= c(pl1,pl2) , nrow  = 1, as.table = FALSE)
+#Gender End
+
+
+```
+
+``` {r eval=FALSE}
+#Hyper tension
+#Create dataframe for stroke 0
+df_hypertension_no <- subset(my_data4, stroke == 0) %>% 
+  group_by(hypertension) %>% # Variable to be transformed
+  count() %>% 
+  ungroup() %>% 
+  mutate(perc = `n` / sum(`n`)) %>% 
+  arrange(perc) %>%
+  mutate(labels = scales::percent(perc))
+
+#Create dataframe for stroke 1
+df_hypertension_yes <- subset(my_data4, stroke == 1) %>% 
+  group_by(hypertension) %>% # Variable to be transformed
+  count() %>% 
+  ungroup() %>% 
+  mutate(perc = `n` / sum(`n`)) %>% 
+  arrange(perc) %>%
+  mutate(labels = scales::percent(perc))
+
+#Plot 1
+pl1 <- list(ggplot(df_hypertension_no, aes(x = "", y = perc, fill = factor(hypertension))) +
+               geom_col() +
+               geom_label(aes(label = labels),
+                          position = position_stack(vjust = 0.5),
+                          show.legend = FALSE) +
+               guides(fill = guide_legend(title = "Hyper Tension")) +
+               scale_fill_brewer() +
+               coord_polar(theta = "y") +  
+               labs(title = "No Stroke") +
+               theme_void())
+
+#Plot 2
+pl2 <- list(ggplot(df_hypertension_yes, aes(x = "", y = perc, fill = factor(hypertension))) +
+               geom_col() +
+               geom_label(aes(label = labels),
+                          position = position_stack(vjust = 0.5),
+                          show.legend = FALSE) +
+               guides(fill = guide_legend(title = "Hyper Tension")) +
+               scale_fill_brewer() +
+               coord_polar(theta = "y") +  
+               labs(title = "Stroke") +
+               theme_void())
+
+#Plot
+grid.arrange(grobs= c(pl1,pl2) , nrow  = 1, as.table = FALSE)
+#Hypertension end
+
+```
+
+``` {r eval=FALSE}
+# Heart disease 
+#Create dataframe for stroke 0
+df_heart_disease_no <- subset(my_data4, stroke == 0) %>% 
+  group_by(heart_disease) %>% # Variable to be transformed
+  count() %>% 
+  ungroup() %>% 
+  mutate(perc = `n` / sum(`n`)) %>% 
+  arrange(perc) %>%
+  mutate(labels = scales::percent(perc))
+
+
+#Create dataframe for stroke 1
+df_heart_disease_yes <- subset(my_data4, stroke == 1) %>% 
+  group_by(heart_disease) %>% # Variable to be transformed
+  count() %>% 
+  ungroup() %>% 
+  mutate(perc = `n` / sum(`n`)) %>% 
+  arrange(perc) %>%
+  mutate(labels = scales::percent(perc))
+
+#Plot 1
+pl1 <- list(ggplot(df_heart_disease_no, aes(x = "", y = perc, fill = factor(heart_disease))) +
+               geom_col() +
+               geom_label(aes(label = labels),
+                          position = position_stack(vjust = 0.5),
+                          show.legend = FALSE) +
+               guides(fill = guide_legend(title = "Heart Disease")) +
+               scale_fill_brewer() + 
+               labs(title = "No Stroke") +
+               coord_polar(theta = "y") + 
+               theme_void())
+             
+#Plot 2
+pl2 <- list(ggplot(df_heart_disease_yes, aes(x = "", y = perc, fill = factor(heart_disease))) +
+               geom_col() +
+               geom_label(aes(label = labels),
+                          position = position_stack(vjust = 0.5),
+                          show.legend = FALSE) +
+               guides(fill = guide_legend(title = "Heart Disease")) +
+               scale_fill_brewer() + 
+               labs(title = "Stroke") +
+               coord_polar(theta = "y") + 
+               theme_void())
+
+#Plot
+grid.arrange(grobs= c(pl1,pl2) , nrow  = 1, as.table = FALSE)
+```
+
+``` {r eval=FALSE}
+#Residence Type Final
+#Create dataframe for stroke 0
+df_Residence_type_no <- subset(my_data4, stroke == 0) %>% 
+  group_by(Residence_type) %>% # Variable to be transformed
+  count() %>% 
+  ungroup() %>% 
+  mutate(perc = `n` / sum(`n`)) %>% 
+  arrange(perc) %>%
+  mutate(labels = scales::percent(perc))
+
+#Create dataframe for stroke 1
+df_Residence_type_yes <- subset(my_data4, stroke == 1) %>% 
+  group_by(Residence_type) %>% # Variable to be transformed
+  count() %>% 
+  ungroup() %>% 
+  mutate(perc = `n` / sum(`n`)) %>% 
+  arrange(perc) %>%
+  mutate(labels = scales::percent(perc))
+
+
+#Plot 1
+pl1 <- list(ggplot(df_Residence_type_no, aes(x = "", y = perc, fill = Residence_type)) +
+               geom_col() +
+               geom_label(aes(label = labels),
+                          position = position_stack(vjust = 0.5),
+                          show.legend = FALSE) +
+               guides(fill = guide_legend(title = "Residence Type")) +
+               scale_fill_brewer() + 
+               labs(title = "No Stroke") +
+               coord_polar(theta = "y") + 
+               theme_void())
+         
+#Plot 2    
+pl2 <- list(ggplot(df_Residence_type_yes, aes(x = "", y = perc, fill = Residence_type)) +
+               geom_col() +
+               geom_label(aes(label = labels),
+                          position = position_stack(vjust = 0.5),
+                          show.legend = FALSE) +
+               guides(fill = guide_legend(title = "Residence Type")) +
+               scale_fill_brewer() + 
+               labs(title = "Stroke") +
+               coord_polar(theta = "y") + 
+               theme_void()
+)
+
+#Plot
+grid.arrange(grobs= c(pl1,pl2) , nrow  = 1, as.table = FALSE)
+# Residence Type End 
+```
+
+``` {r eval=FALSE}
+# Marital Status Final
+#Create dataframe for stroke 0
+df_marital_status_no <- subset(my_data4, stroke == 0) %>% 
+  group_by(ever_married) %>% # Variable to be transformed
+  count() %>% 
+  ungroup() %>% 
+  mutate(perc = `n` / sum(`n`)) %>% 
+  arrange(perc) %>%
+  mutate(labels = scales::percent(perc))
+
+
+#Create dataframe for stroke 1
+df_marital_status_yes <- subset(my_data4, stroke == 1) %>% 
+  group_by(ever_married) %>% # Variable to be transformed
+  count() %>% 
+  ungroup() %>% 
+  mutate(perc = `n` / sum(`n`)) %>% 
+  arrange(perc) %>%
+  mutate(labels = scales::percent(perc))
+
+
+#Plot 1
+pl1 <- list(ggplot(df_marital_status_no, aes(x = "", y = perc, fill = ever_married)) +
+               geom_col() +
+               geom_label(aes(label = labels),
+                          position = position_stack(vjust = 0.5),
+                          show.legend = FALSE) +
+               guides(fill = guide_legend(title = "Ever Married")) +
+               scale_fill_brewer() + 
+               labs(title = "No Stroke") +
+               coord_polar(theta = "y") + 
+               theme_void())
+             
+#Plot 2
+pl2 <- list(ggplot(df_marital_status_yes, aes(x = "", y = perc, fill = ever_married)) +
+               geom_col() +
+               geom_label(aes(label = labels),
+                          position = position_stack(vjust = 0.5),
+                          show.legend = FALSE) +
+               guides(fill = guide_legend(title = "Ever Married")) +
+               scale_fill_brewer() + 
+               labs(title = "Stroke") +
+               coord_polar(theta = "y") + 
+               theme_void()
+)
+
+#Plot
+grid.arrange(grobs= c(pl1,pl2) , nrow  = 1, as.table = FALSE)
+# Marital Status End
+```
+
+``` {r eval=FALSE}
+#Decision Tree
+rp_fit_gini <- rpart(stroke ~ ., data = df_hds3)
+
+rpart.plot(rp_fit_gini)
+```
+
+``` {r eval=FALSE}
+#Logistic Regression
+model <- glm(stroke ~ gender + age + hypertension + heart_disease +
+               ever_married + work_type + Residence_type + 
+               avg_glucose_level + bmi + smoking_status,
+             data = df_hds3, family = "binomial")
+
+
+# Summarize the model
+summary(model)
+```
+
+``` {r eval=FALSE}
+#Logistic Regression for relevant variables
+set.seed(1)
+
+#create ID column
+df_hds3$id <- 1:nrow(df_hds3)
+
+#use 70% of dataset as training set and 30% as test set 
+train <- df_hds3 %>% dplyr::sample_frac(0.70)
+test  <- dplyr::anti_join(df_hds3, train, by = 'id')
+
+
+# Fitting a logistic regression model using the training data
+model <- glm(stroke ~ age + hypertension + heart_disease +
+               avg_glucose_level,
+             data = train, family = "binomial")
+
+predictions <- predict(model, test, type = "response")
+
+binary_predictions <- ifelse(predictions > 0.5, 1, 0)
+
+# Calculate accuracy
+accuracy <- mean(binary_predictions == test$stroke)
+cat("Accuracy:", accuracy, "\n")
+```
